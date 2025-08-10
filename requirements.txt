@@ -1,0 +1,5 @@
+Django>=5.0,<6.0
+pytube>=15.0.0
+moviepy>=1.0.3
+requests>=2.31.0
+python-magic>=0.4.27
