@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Video/Audio Downloader</title>
+    {% load static %}
+    <!-- Bootstrap CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 col-md-10">
+                <div class="card shadow-lg mt-5">
+                    <div class="-header text-center bg-primary text-white">
+                        <h1 class="card-title mb-0">
+                            <i class="fab fa-youtube me-2"></i>
+                            YouTube Video/Audio Downloader
+                        </h1>
+                    </div>
+                    
+                    <div class="card-body p-4">
+                        <!-- Error Messages -->
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                        
+                        <!-- Step 1: URL Input -->
+                        <div class="step-container mb-4">
+                            <h5 class="step-title">
+                                <span class="step-number">1</span>
+                                Enter YouTube URL
+                            </h5>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-link"></i>
+                                </span>
+                                <input type="url" 
+                                       class="form-control" 
+                                       id="youtube-url" 
+                                       placeholder="Paste YouTube URL here... (e.g., https://www.youtube.com/watch?v=...)"
+                                       required>
+                                <button class="btn btn-outline-primary" 
+                                        type="button" 
+                                        id="fetch-info-btn">
+                                    <i class="fas fa-search me-2"></i>Get Info
+                                </button>
+                            </div>
+                            <div class="form-text">
+                                Maximum file size: {{ max_file_size }}MB
+                            </div>
+                        </div>
+                        
+                        <!-- Loading Spinner -->
+                        <div id="loading-spinner" class="text-center py-4" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <div class="mt-2">Fetching video information...</div>
+                        </div>
+                        
+                        <!-- Video Info Display -->
+                        <div id="video-info" style="display: none;" class="mb-4">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <img id="video-thumbnail" src="" alt="Video thumbnail" class="img-fluid rounded">
+                                        </div>
+                                        <div class="col-md-9">
+                                            <h6 class="card-title" id="video-title"></h6>
+                                            <p class="card-text">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-user me-1"></i><span id="video-author"></span> •
+                                                    <i class="fas fa-eye me-1"></i><span id="video-views"></span> views •
+                                                    <i class="fas fa-clock me-1"></i><span id="video-duration"></span>
+                                                </small>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Download Form -->
+                        <form id="download-form" method="post" action="/download/">
+                            {% csrf_token %}
+                            <input type="hidden" id="selected-url" name="url" value="">
+                            <input type="hidden" id="selected-itag" name="itag" value="">
+                            
+                            <!-- Step 2: Quality Selection -->
+                            <div class="step-container mb-4">
+                                <h5 class="step-title">
+                                    <span class="step-number">2</span>
+                                    Choose Quality
+                                </h5>
+                                <select class="form-select" id="quality-select" name="resolution" required>
+                                    <option value="">Select video quality...</option>
+                                </select>
+                                <div class="form-text">Higher quality = larger file size</div>
+                            </div>
+                            
+                            <!-- Step 3: Download Type -->
+                            <div class="step-container mb-4">
+                                <h5 class="step-title">
+                                    <span class="step-number">3</span>
+                                    Choose Format
+                                </h5>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="form-check format-option">
+                                            <input class="form-check-input" type="radio" name="download_type" id="mp4-option" value="mp4" checked>
+                                            <label class="form-check-label" for="mp4-option">
+                                                <i class="fas fa-video text-primary me-2"></i>
+                                                <strong>MP4 Video</strong><br>
+                                                <small class="text-muted">Video with audio</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-check format-option">
+                                            <input class="form-check-input" type="radio" name="download_type" id="mp3-option" value="mp3">
+                                            <label class="form-check-label" for="mp3-option">
+                                                <i class="fas fa-music text-success me-2"></i>
+                                                <strong>MP3 Audio</strong><br>
+                                                <small class="text-muted">Audio only</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-check format-option">
+                                            <input class="form-check-input" type="radio" name="download_type" id="both-option" value="both">
+                                            <label class="form-check-label" for="both-option">
+                                                <i class="fas fa-archive text-warning me-2"></i>
+                                                <strong>Both (ZIP)</strong><br>
+                                                <small class="text-muted">MP4 + MP3 in ZIP</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Step 4: Download -->
+                            <div class="step-container">
+                                <h5 class="step-title">
+                                    <span class="step-number">4</span>
+                                    Download
+                                </h5>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-success btn-lg" id="download-btn">
+                                        <i class="fas fa-download me-2"></i>
+                                        Start Download
+                                    </button>
+                                </div>
+                                <div class="form-text text-center mt-2">
+                                    <small>
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Download will start automatically. Large files may take a few minutes to process.
+                                    </small>
+                                </div>
+                            </div>
+                        </form>
+                        
+                        <!-- Download Progress -->
+                        <div id="download-progress" style="display: none;" class="text-center py-4">
+                            <div class="spinner-border text-success" role="status">
+                                <span class="visually-hidden">Downloading...</span>
+                            </div>
+                            <div class="mt-2">
+                                <strong>Processing your download...</strong><br>
+                                <small class="text-muted">Please wait, this may take a few minutes for large files or MP3 conversion.</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer text-center text-muted">
+                        <small>
+                            <i class="fas fa-shield-alt me-1"></i>
+                            Free and secure YouTube downloader. No files stored on our servers.
+                        </small>
+                    </div>
+                </div>
+                
+                <!-- Instructions Card -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-question-circle me-2"></i>
+                            How to Use
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <ol class="mb-0">
+                            <li>Paste a valid YouTube video URL in the input field</li>
+                            <li>Click "Get Info" to fetch available quality options</li>
+                            <li>Select your preferred video quality</li>
+                            <li>Choose download format (MP4 video, MP3 audio, or both in a ZIP)</li>
+                            <li>Click "Start Download" and wait for the file to download</li>
+                        </ol>
+                        
+                        <div class="mt-3">
+                            <strong>Supported URLs:</strong>
+                            <ul class="mb-0">
+                                <li><code>https://www.youtube.com/watch?v=...</code></li>
+                                <li><code>https://youtu.be/...</code></li>
+                                <li><code>https://m.youtube.com/watch?v=...</code></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JS -->
+    <script src="{% static 'js/main.js' %}"></script>
+</body>
+</html>
